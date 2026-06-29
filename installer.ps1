@@ -1,5 +1,5 @@
 # ==============================================================================
-# GESTOR DE DESPLIEGUE MULTIVERSIÓN - CONFIGURADO PARA ESET INTERNET SECURITY
+# GESTOR DE DESPLIEGUE MULTIVERSIÓN
 # ==============================================================================
 
 # 1. FORZAR ADMINISTRADOR
