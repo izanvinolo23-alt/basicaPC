@@ -138,16 +138,27 @@ do {
     $opcion = Read-Host "Elige una opción (1-8)"
 
     switch ($opcion) {
-        "1" {
-            Start-Transcript -Path "$env:TEMP\pc-setup-log.txt"
+
+            "1" {
+            # Evita el error comprobando si ya hay una transcripción activa antes de iniciarla
+            if ($null -eq (Get-Transcript -ErrorAction SilentlyContinue)) {
+                Start-Transcript -Path "$env:TEMP\pc-setup-log.txt" -Force
+            }
+            
             Instalar-Navegadores
             Configurar-Navegadores
             Instalar-Office
             Optimizar-Sistema
             Instalar-Supremo
-            Stop-Transcript
+            
+            # Detiene la transcripción de forma segura solo si está corriendo
+            if ($null -ne (Get-Transcript -ErrorAction SilentlyContinue)) {
+                Stop-Transcript
+            }
+            
             Write-Host "`n[OK] ¡Proceso completo finalizado con éxito!" -ForegroundColor Green
             Read-Host "`nPresiona Enter para volver al menú..."
+        }
         }
         "2" { Instalar-Navegadores; Read-Host "`nPresiona Enter para volver al menú..." }
         "3" { Configurar-Navegadores; Read-Host "`nPresiona Enter para volver al menú..." }
