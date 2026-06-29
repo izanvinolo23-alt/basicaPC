@@ -1,3 +1,12 @@
+# Comprobar si el script se ejecuta como administrador
+if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Warning "Necesitas ejecutar esto como administrador."
+    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
+    Exit
+}
+
+# Establecer la política de ejecución local para asegurar que los instaladores corran
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
 $version = "1.0.0"
 Write-Host "PC Setup v$version" -ForegroundColor Cyan
 
