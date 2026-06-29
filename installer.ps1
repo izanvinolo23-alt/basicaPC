@@ -1,5 +1,5 @@
 # ==============================================================================
-# GESTOR DE DESPLIEGUE MULTIVERSIÓN - REPARADO ERROR WRITEALLTEXT Y RUTAS FF
+# GESTOR DE DESPLIEGUE MULTIVERSIÓN - CONFIGURADO PARA ESET INTERNET SECURITY
 # ==============================================================================
 
 # 1. FORZAR ADMINISTRADOR
@@ -150,24 +150,42 @@ function Instalar-Office-Antiguo {
 # ==============================================================================
 # FUNCIONES UNIVERSALES (COMPATIBLES CON TODOS LOS WINDOWS)
 # ==============================================================================
+function Instalar-Antivirus-InternetSecurity {
+    Write-Host "`n[+] Iniciando despliegue de ESET Internet Security desde tu GitHub..." -ForegroundColor Cyan
+    $esetTemp = "$env:TEMP\EsetInternetSetup"
+    if (-not (Test-Path $esetTemp)) { New-Item -ItemType Directory -Path $esetTemp -Force | Out-Null }
+    
+    # Enlace directo a tu ejecutable subido y renombrado
+    $esetUrl = "https://raw.githubusercontent.com/izanvinolo23-alt/basicaPC/main/eset_internet.exe"
+    $esetPath = "$esetTemp\eset_internet.exe"
+    
+    Write-Host "-> Descargando tu instalador eset_internet.exe..." -ForegroundColor Yellow
+    $descargaOk = Descargar-Archivo-Grande $esetUrl $esetPath
+    
+    if ($descargaOk -and (Test-Path $esetPath)) {
+        Write-Host "-> Lanzando asistente visible de ESET Internet Security..." -ForegroundColor Yellow
+        Start-Process -FilePath $esetPath -Wait
+        Write-Host "[OK] Proceso de instalación de ESET finalizado." -ForegroundColor Green
+    } else {
+        Write-Error "No se pudo bajar el instalador de ESET Internet Security desde tu GitHub."
+    }
+}
+
 function Configurar-Navegadores {
     Write-Host "`n[+] Configurando y forzando políticas de navegación (Google.cat)..." -ForegroundColor Cyan
     
-    # 1. CERRAR PROCESOS Y SERVICIOS EN SEGUNDO PLANO DE LOS NAVEGADORES
     $procs = @("firefox", "chrome", "msedge", "setup", "GoogleUpdate", "MicrosoftEdgeUpdate")
     foreach ($p in $procs) {
         Stop-Process -Name $p -Force -ErrorAction SilentlyContinue
     }
     Start-Sleep -Seconds 2
 
-    # 2. BORRAR PREFERENCIAS PREVIAS DE LOS USUARIOS
     $userPaths = Get-ChildItem "C:\Users" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name
     foreach ($user in $userPaths) {
         Remove-Item "C:\Users\$user\AppData\Local\Google\Chrome\User Data\Default\Preferences" -Force -ErrorAction SilentlyContinue
         Remove-Item "C:\Users\$user\AppData\Local\Microsoft\Edge\User Data\Default\Preferences" -Force -ErrorAction SilentlyContinue
     }
 
-    # 3. DOBLE INYECCIÓN EN EL REGISTRO (RUTAS LOCALES Y RUTAS DE POLÍTICAS)
     $registryPaths = @(
         "HKLM:\SOFTWARE\Google\Chrome",
         "HKLM:\SOFTWARE\Policies\Google\Chrome",
@@ -190,21 +208,18 @@ function Configurar-Navegadores {
         Set-ItemProperty -Path $p -Name "DefaultSearchProviderSearchURL" -Value "https://www.google.cat/search?q={searchTerms}" -Force
     }
     
-    # 4. FORZADO DE POLÍTICA EN FIREFOX (CORREGIDA LA CREACIÓN DE CARPETAS Y EL ESCRITO DEL JSON)
     $jsonContent = '{"policies":{"Homepage":{"URL":"https://www.google.cat","StartPage":"homepage","Locked":true},"SearchEngines":{"Default":"Google","PreventInstalls":true,"Remove":["Bing","Yahoo","DuckDuckGo","eBay"]}}}'
     $ffPaths = @("C:\Program Files\Mozilla Firefox", "C:\Program Files (x86)\Mozilla Firefox")
+    $utf8NoBOM = New-Object System.Text.UTF8Encoding($false)
     
     foreach ($ffPath in $ffPaths) {
         $ffDir = "$ffPath\distribution"
-        # Forzar de forma robusta la creación del árbol de directorios completo si no existe
         if (-not (Test-Path $ffDir)) { 
             New-Item -ItemType Directory -Path $ffDir -Force | Out-Null 
         }
-        # Guardar en UTF-8 puro sin marca BOM usando comandos nativos compatibles de PowerShell
-        [System.IO.File]::WriteAllText("$ffDir\policies.json", $jsonContent)
+        [System.IO.File]::WriteAllText("$ffDir\policies.json", $jsonContent, $utf8NoBOM)
     }
     
-    # 5. OBLIGAR A WINDOWS A REFRESCAR LAS DIRECTIVAS DE GRUPO AL INSTANTE
     Write-Host "-> Aplicando cambios en las directivas del sistema operativo..." -ForegroundColor Yellow
     gpupdate /force | Out-Null
     
@@ -270,15 +285,16 @@ function Menu-Moderno {
         Write-Host " 3) Configurar SOLO Navegadores (Google.cat)" -ForegroundColor White
         Write-Host " 4) Instalar SOLO Office 2019 (Git)" -ForegroundColor White
         Write-Host " 5) Instalar SOLO Herramienta Supremo (Git)" -ForegroundColor White
-        Write-Host " 6) Lanzar ACTIVACIÓN General (Massgrave)" -ForegroundColor Yellow
-        Write-Host " 7) DESINSTALAR aplicaciones y limpiar" -ForegroundColor Red
-        Write-Host " 8) <- Volver al Menú Principal" -ForegroundColor Gray
+        Write-Host " 6) Instalar SOLO ESET Internet Security (Git)" -ForegroundColor White
+        Write-Host " 7) Lanzar ACTIVACIÓN General (Massgrave)" -ForegroundColor Yellow
+        Write-Host " 8) DESINSTALAR aplicaciones y limpiar" -ForegroundColor Red
+        Write-Host " 9) <- Volver al Menú Principal" -ForegroundColor Gray
         Write-Host "=============================================" -ForegroundColor Cyan
-        $opc = Read-Host "Elige una opción (1-8)"
+        $opc = Read-Host "Elige una opción (1-9)"
         switch ($opc) {
             "1" {
                 if (-not $Global:TranscripcionActiva) { Start-Transcript -Path "$env:TEMP\pc-setup-log.txt" -Force | Out-Null; $Global:TranscripcionActiva = $true }
-                Instalar-Apps-Modernas; Configurar-Navegadores; Instalar-Office-Moderno; Optimizar-Sistema; Instalar-Supremo
+                Instalar-Apps-Modernas; Configurar-Navegadores; Instalar-Office-Moderno; Optimizar-Sistema; Instalar-Supremo; Instalar-Antivirus-InternetSecurity
                 if ($Global:TranscripcionActiva) { Stop-Transcript | Out-Null; $Global:TranscripcionActiva = $false }
                 Read-Host "`n[OK] Todo listo. Presiona Enter..."
             }
@@ -286,11 +302,12 @@ function Menu-Moderno {
             "3" { Configurar-Navegadores; Read-Host "`nPresiona Enter..." }
             "4" { Instalar-Office-Moderno; Read-Host "`nPresiona Enter..." }
             "5" { Instalar-Supremo; Read-Host "`nPresiona Enter..." }
-            "6" { Write-Host "`n[+] Lanzando Massgrave..."; irm https://get.activated.win | iex; Read-Host "`nPresiona Enter..." }
-            "7" { Desinstalar-Todo; Read-Host "`nPresiona Enter..." }
-            "8" { break }
+            "6" { Instalar-Antivirus-InternetSecurity; Read-Host "`nPresiona Enter..." }
+            "7" { Write-Host "`n[+] Lanzando Massgrave..."; irm https://get.activated.win | iex; Read-Host "`nPresiona Enter..." }
+            "8" { Desinstalar-Todo; Read-Host "`nPresiona Enter..." }
+            "9" { break }
         }
-    } while ($opc -ne "8")
+    } while ($opc -ne "9")
 }
 
 function Menu-Antiguo {
@@ -304,25 +321,27 @@ function Menu-Antiguo {
         Write-Host " 3) Configurar SOLO Navegadores (Google.cat)" -ForegroundColor White
         Write-Host " 4) Instalar SOLO Office 2019 (Git)" -ForegroundColor White
         Write-Host " 5) Instalar SOLO Herramienta Supremo (Git)" -ForegroundColor White
-        Write-Host " 6) Optimizar SOLO Servicios y Arranque Antiguo" -ForegroundColor White
-        Write-Host " 7) Lanzar ACTIVACIÓN General (Massgrave)" -ForegroundColor Yellow
-        Write-Host " 8) <- Volver al Menú Principal" -ForegroundColor Gray
+        Write-Host " 6) Instalar SOLO ESET Internet Security (Git)" -ForegroundColor White
+        Write-Host " 7) Optimizar SOLO Servicios y Arranque Antiguo" -ForegroundColor White
+        Write-Host " 8) Lanzar ACTIVACIÓN General (Massgrave)" -ForegroundColor Yellow
+        Write-Host " 9) <- Volver al Menú Principal" -ForegroundColor Gray
         Write-Host "=============================================" -ForegroundColor Yellow
-        $opc = Read-Host "Elige una opción (1-8)"
+        $opc = Read-Host "Elige una opción (1-9)"
         switch ($opc) {
             "1" {
-                Instalar-Apps-Antiguas; Configurar-Navegadores; Instalar-Office-Antiguo; Optimizar-Sistema; Instalar-Supremo
+                Instalar-Apps-Antiguas; Configurar-Navegadores; Instalar-Office-Antiguo; Optimizar-Sistema; Instalar-Supremo; Instalar-Antivirus-InternetSecurity
                 Read-Host "`n[OK] Maquetación antigua finalizada. Presiona Enter..."
             }
             "2" { Instalar-Apps-Antiguas; Read-Host "`nPresiona Enter..." }
             "3" { Configurar-Navegadores; Read-Host "`nPresiona Enter..." }
             "4" { Instalar-Office-Antiguo; Read-Host "`nPresiona Enter..." }
             "5" { Instalar-Supremo; Read-Host "`nPresiona Enter..." }
-            "6" { Optimizar-Sistema; Read-Host "`nPresiona Enter..." }
-            "7" { Write-Host "`n[+] Lanzando Massgrave..."; irm https://get.activated.win | iex; Read-Host "`nPresiona Enter..." }
-            "8" { break }
+            "6" { Instalar-Antivirus-InternetSecurity; Read-Host "`nPresiona Enter..." }
+            "7" { Optimizar-Sistema; Read-Host "`nPresiona Enter..." }
+            "8" { Write-Host "`n[+] Lanzando Massgrave..."; irm https://get.activated.win | iex; Read-Host "`nPresiona Enter..." }
+            "9" { break }
         }
-    } while ($opc -ne "8")
+    } while ($opc -ne "9")
 }
 
 # ==============================================================================
