@@ -1,5 +1,5 @@
 # ==============================================================================
-# GESTOR DE DESPLIEGUE MULTIVERSIÓN - VERSIÓN ULTRAESTABLE REVISADA CON GPUPDATE
+# GESTOR DE DESPLIEGUE MULTIVERSIÓN - REPARADO ERROR WRITEALLTEXT Y RUTAS FF
 # ==============================================================================
 
 # 1. FORZAR ADMINISTRADOR
@@ -190,15 +190,18 @@ function Configurar-Navegadores {
         Set-ItemProperty -Path $p -Name "DefaultSearchProviderSearchURL" -Value "https://www.google.cat/search?q={searchTerms}" -Force
     }
     
-    # 4. FORZADO DE POLÍTICA EN FIREFOX (ESTRICTO UTF-8 SIN BOM)
+    # 4. FORZADO DE POLÍTICA EN FIREFOX (CORREGIDA LA CREACIÓN DE CARPETAS Y EL ESCRITO DEL JSON)
     $jsonContent = '{"policies":{"Homepage":{"URL":"https://www.google.cat","StartPage":"homepage","Locked":true},"SearchEngines":{"Default":"Google","PreventInstalls":true,"Remove":["Bing","Yahoo","DuckDuckGo","eBay"]}}}'
     $ffPaths = @("C:\Program Files\Mozilla Firefox", "C:\Program Files (x86)\Mozilla Firefox")
-    $utf8NoBOM = New-Object System.Text.UTF8Encoding($false)
     
     foreach ($ffPath in $ffPaths) {
         $ffDir = "$ffPath\distribution"
-        if (-not (Test-Path $ffDir)) { New-Item -ItemType Directory -Path $ffDir -Force | Out-Null }
-        [System.IO.File]::WriteAllText("$ffDir\policies.json", $jsonContent, $utf8NoBOM)
+        # Forzar de forma robusta la creación del árbol de directorios completo si no existe
+        if (-not (Test-Path $ffDir)) { 
+            New-Item -ItemType Directory -Path $ffDir -Force | Out-Null 
+        }
+        # Guardar en UTF-8 puro sin marca BOM usando comandos nativos compatibles de PowerShell
+        [System.IO.File]::WriteAllText("$ffDir\policies.json", $jsonContent)
     }
     
     # 5. OBLIGAR A WINDOWS A REFRESCAR LAS DIRECTIVAS DE GRUPO AL INSTANTE
@@ -226,7 +229,7 @@ function Optimizar-Sistema {
             }
         }
     }
-    Write-Host "[OK] Servicios y elementos de inicio optimizados." -ForegroundColor Green
+    Write-Host "[OK] Services y elementos de inicio optimizados." -ForegroundColor Green
 }
 
 function Instalar-Supremo {
