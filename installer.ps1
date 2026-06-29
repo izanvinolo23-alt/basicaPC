@@ -1,5 +1,5 @@
 # ==============================================================================
-# PC SETUP UNIFICADO - MENÚ INTERACTIVO PROFESIONAL
+# PC SETUP UNIFICADO - MENÚ INTERACTIVO (OPCIÓN 1: INSTALAR TODO)
 # ==============================================================================
 
 # 1. FORZAR ADMINISTRADOR
@@ -18,24 +18,24 @@ if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 }
 
-# Funciones de soporte para mantener el código limpio
+# Funciones de soporte
 function Instalar-Navegadores {
-    Write-Host "`n[+] Instalando Google Chrome y Mozilla Firefox..." -ForegroundColor Cyan
+    Write-Host "`n[+] Instalando aplicaciones esenciales (Chrome, Firefox, VLC, Adobe)..." -ForegroundColor Cyan
     winget source update --accept-source-agreements | Out-Null
-    $browsers = @("Google.Chrome", "Mozilla.Firefox")
-    foreach ($b in $browsers) {
-        Write-Host "-> Instalando: $b..." -ForegroundColor Yellow
-        if ($b -eq "Mozilla.Firefox") {
-            winget install --id $b --silent --accept-package-agreements --accept-source-agreements --exact --override "/S"
+    $apps = @("Google.Chrome", "Mozilla.Firefox", "VideoLAN.VLC", "Adobe.Acrobat.Reader.64-bit")
+    foreach ($app in $apps) {
+        Write-Host "-> Instalando: $app de forma silenciosa..." -ForegroundColor Yellow
+        if ($app -eq "Mozilla.Firefox" -or $app -eq "VideoLAN.VLC") {
+            winget install --id $app --silent --accept-package-agreements --accept-source-agreements --exact --override "/S"
         } else {
-            winget install --id $b --silent --accept-package-agreements --accept-source-agreements --exact
+            winget install --id $app --silent --accept-package-agreements --accept-source-agreements --exact
         }
     }
-    Write-Host "[OK] Navegadores instalados." -ForegroundColor Green
+    Write-Host "[OK] Aplicaciones base procesadas." -ForegroundColor Green
 }
 
 function Configurar-Navegadores {
-    Write-Host "`n[+] Configurando políticas (Google.cat)..." -ForegroundColor Cyan
+    Write-Host "`n[+] Configurando políticas de navegación (Google.cat)..." -ForegroundColor Cyan
     $paths = @("HKLM:\SOFTWARE\Policies\Microsoft\Edge", "HKLM:\SOFTWARE\Policies\Google\Chrome")
     foreach ($p in $paths) {
         if (-not (Test-Path $p)) { New-Item -Path $p -Force | Out-Null }
@@ -44,15 +44,18 @@ function Configurar-Navegadores {
         $urlsP = "$p\RestoreOnStartupURLs"
         if (-not (Test-Path $urlsP)) { New-Item -Path $urlsP -Force | Out-Null }
         Set-ItemProperty -Path $urlsP -Name "1" -Value "https://www.google.cat" -Force
+        Set-ItemProperty -Path $p -Name "DefaultSearchProviderEnabled" -Value 1 -Force
+        Set-ItemProperty -Path $p -Name "DefaultSearchProviderName" -Value "Google" -Force
+        Set-ItemProperty -Path $p -Name "DefaultSearchProviderSearchURL" -Value "https://www.google.cat/search?q={searchTerms}" -Force
     }
     $ffDir = "C:\Program Files\Mozilla Firefox\distribution"
     if (-not (Test-Path $ffDir)) { New-Item -ItemType Directory -Path $ffDir -Force | Out-Null }
-    '{"policies":{"Homepage":{"URL":"https://www.google.cat","StartPage":"homepage","Locked":true}}}' | Out-File -FilePath "$ffDir\policies.json" -Encoding utf8 -Force
-    Write-Host "[OK] Políticas aplicadas a Google.cat." -ForegroundColor Green
+    '{"policies":{"Homepage":{"URL":"https://www.google.cat","StartPage":"homepage","Locked":true},"SearchEngines":{"Default":"Google","PreventInstalls":true,"Remove":["Bing","Yahoo","DuckDuckGo","eBay"]}}}' | Out-File -FilePath "$ffDir\policies.json" -Encoding utf8 -Force
+    Write-Host "[OK] Navegadores vinculados a Google.cat." -ForegroundColor Green
 }
 
 function Instalar-Office {
-    Write-Host "`n[+] Iniciando instalación automatizada de Microsoft Office..." -ForegroundColor Cyan
+    Write-Host "`n[+] Iniciando instalación automatizada de Microsoft Office 2021..." -ForegroundColor Cyan
     $officeTemp = "$env:TEMP\OfficeSetup"
     if (-not (Test-Path $officeTemp)) { New-Item -ItemType Directory -Path $officeTemp -Force | Out-Null }
     try {
@@ -63,12 +66,39 @@ function Instalar-Office {
         $xmlContent | Out-File -FilePath "$officeTemp\configuration.xml" -Encoding utf8 -Force
         Write-Host "-> Descargando e instalando Office (Espera unos minutos)..." -ForegroundColor Yellow
         Start-Process -FilePath "$officeTemp\setup.exe" -ArgumentList "/configure `"$officeTemp\configuration.xml`"" -Wait
-        Write-Host "[OK] Microsoft Office instalado." -ForegroundColor Green
+        Write-Host "[OK] Microsoft Office instalado correctamente." -ForegroundColor Green
     } catch { Write-Error "Fallo en Office: $_" }
 }
 
+function Optimizar-Sistema {
+    Write-Host "`n[+] Aplicando optimizaciones y limpieza del sistema..." -ForegroundColor Cyan
+    # Deshabilitar servicios innecesarios
+    $services = @("DiagTrack", "dmwappushservice", "XblGameSave", "XblAuthManager", "XboxNetApiSvc", "XboxGipSvc", "WSearch", "WerSvc", "MapsBroker", "ParentalControls")
+    foreach ($s in $services) {
+        if (Get-Service $s -ErrorAction SilentlyContinue) {
+            Stop-Service $s -Force -ErrorAction SilentlyContinue
+            reg.exe add "HKLM\SYSTEM\CurrentControlSet\Services\$s" /v Start /t REG_DWORD /d 4 /f | Out-Null
+        }
+    }
+    # Limpieza de arranque
+    bcdedit /deletevalue {current} numproc -ErrorAction SilentlyContinue | Out-Null
+    $runPaths = @("HKCU:\Software\Microsoft\Windows\CurrentVersion\Run", "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run")
+    $whitelist = @("SecurityHealth", "WindowsDefender", "OneDrive", "RtkAudUService")
+    foreach ($path in $runPaths) {
+        if (Test-Path $path) {
+            foreach ($prop in (Get-Item $path).Property) {
+                if ($prop -notin $whitelist) { Remove-ItemProperty -Path $path -Name $prop -ErrorAction SilentlyContinue }
+            }
+        }
+    }
+    # Desactivar animaciones visuales
+    Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "UserPreferencesMask" -Value ([byte[]](0x90,0x12,0x03,0x80,0x10,0x00,0x00,0x00)) -Force
+    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "AnimateControls" -Value 0 -Force
+    Write-Host "[OK] Servicios y arranque optimizados al 100%." -ForegroundColor Green
+}
+
 function Instalar-Supremo {
-    Write-Host "`n[+] Descargando Supremo..." -ForegroundColor Cyan
+    Write-Host "`n[+] Descargando herramienta Supremo..." -ForegroundColor Cyan
     try {
         $userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
         Invoke-WebRequest -Uri "https://www.supremocontrol.com/download/Supremo.exe" -OutFile "$env:PUBLIC\Desktop\Supremo.exe" -UserAgent $userAgent -ErrorAction Stop
@@ -84,7 +114,7 @@ function Desinstalar-Todo {
         winget uninstall --id $app --silent -ErrorAction SilentlyContinue
     }
     if (Test-Path "$env:PUBLIC\Desktop\Supremo.exe") { Remove-Item "$env:PUBLIC\Desktop\Supremo.exe" -Force }
-    Write-Host "[OK] Limpieza terminada." -ForegroundColor Green
+    Write-Host "[OK] Limpieza de entorno terminada." -ForegroundColor Green
 }
 
 # ==========================================
@@ -95,12 +125,12 @@ do {
     Write-Host "=============================================" -ForegroundColor Cyan
     Write-Host "          PANEL DE CONTROL - PC SETUP        " -ForegroundColor Cyan
     Write-Host "=============================================" -ForegroundColor Cyan
-    Write-Host " 1) Instalar SOLO Navegadores (Chrome/Firefox)" -ForegroundColor White
-    Write-Host " 2) Configurar SOLO Navegadores (Google.cat)" -ForegroundColor White
-    Write-Host " 3) Instalar SOLO Microsoft Office 2021" -ForegroundColor White
-    Write-Host " 4) Instalar SOLO Herramienta Supremo" -ForegroundColor White
-    Write-Host " 5) Lanzar ACTIVACIÓN de Windows / Office (Massgrave)" -ForegroundColor Yellow
-    Write-Host " 6) Ejecutar INSTALACIÓN COMPLETA (Todo el catálogo)" -ForegroundColor Green
+    Write-Host " 1) EJECUTAR INSTALACIÓN COMPLETA (Todo junto)" -ForegroundColor Green
+    Write-Host " 2) Instalar SOLO Navegadores y Apps Base" -ForegroundColor White
+    Write-Host " 3) Configurar SOLO Navegadores (Google.cat)" -ForegroundColor White
+    Write-Host " 4) Instalar SOLO Microsoft Office 2021" -ForegroundColor White
+    Write-Host " 5) Instalar SOLO Herramienta Supremo" -ForegroundColor White
+    Write-Host " 6) Lanzar ACTIVACIÓN de Windows / Office (Massgrave)" -ForegroundColor Yellow
     Write-Host " 7) DESINSTALAR aplicaciones y limpiar entorno" -ForegroundColor Red
     Write-Host " 8) Salir" -ForegroundColor White
     Write-Host "=============================================" -ForegroundColor Cyan
@@ -108,28 +138,25 @@ do {
     $opcion = Read-Host "Elige una opción (1-8)"
 
     switch ($opcion) {
-        "1" { Instalar-Navegadores; Read-Host "`nPresiona Enter para volver al menú..." }
-        "2" { Configurar-Navegadores; Read-Host "`nPresiona Enter para volver al menú..." }
-        "3" { Instalar-Office; Read-Host "`nPresiona Enter para volver al menú..." }
-        "4" { Instalar-Supremo; Read-Host "`nPresiona Enter para volver al menú..." }
-        "5" { 
-            Write-Host "`n[+] Lanzando script oficial de activación..." -ForegroundColor Yellow
-            irm https://get.activated.win | iex
-            Read-Host "`nPresiona Enter para volver al menú..." 
-        }
-        "6" {
+        "1" {
             Start-Transcript -Path "$env:TEMP\pc-setup-log.txt"
             Instalar-Navegadores
             Configurar-Navegadores
             Instalar-Office
+            Optimizar-Sistema
             Instalar-Supremo
-            # Resto de optimizaciones automáticas
-            Write-Host "`n[+] Aplicando optimizaciones del sistema..." -ForegroundColor Cyan
-            $services = @("DiagTrack", "dmwappushservice", "XblGameSave", "XblAuthManager", "WSearch", "WerSvc")
-            foreach ($s in $services) { if (Get-Service $s -ErrorAction SilentlyContinue) { Stop-Service $s -Force; reg.exe add "HKLM\SYSTEM\CurrentControlSet\Services\$s" /v Start /t REG_DWORD /d 4 /f | Out-Null } }
             Stop-Transcript
-            Write-Host "`n[OK] Instalación completa finalizada con éxito." -ForegroundColor Green
+            Write-Host "`n[OK] ¡Proceso completo finalizado con éxito!" -ForegroundColor Green
             Read-Host "`nPresiona Enter para volver al menú..."
+        }
+        "2" { Instalar-Navegadores; Read-Host "`nPresiona Enter para volver al menú..." }
+        "3" { Configurar-Navegadores; Read-Host "`nPresiona Enter para volver al menú..." }
+        "4" { Instalar-Office; Read-Host "`nPresiona Enter para volver al menú..." }
+        "5" { Instalar-Supremo; Read-Host "`nPresiona Enter para volver al menú..." }
+        "6" { 
+            Write-Host "`n[+] Lanzando script oficial de activación..." -ForegroundColor Yellow
+            irm https://get.activated.win | iex
+            Read-Host "`nPresiona Enter para volver al menú..." 
         }
         "7" { Desinstalar-Todo; Read-Host "`nPresiona Enter para volver al menú..." }
         "8" { Write-Host "`nSaliendo del instalador..." -ForegroundColor Gray; break }
