@@ -1,5 +1,5 @@
 # ==============================================================================
-# GESTOR DE DESPLIEGUE MULTIVERSIÓN - SCRIPT FINAL COMPLETADO
+# GESTOR DE DESPLIEGUE MULTIVERSIÓN - VERSIÓN ULTRAESTABLE (LOGÍSTICA GITHUB)
 # ==============================================================================
 
 # 1. FORZAR ADMINISTRADOR
@@ -43,43 +43,24 @@ function Instalar-Apps-Modernas {
 }
 
 function Instalar-Office-Moderno {
-    Write-Host "`n[+] Iniciando instalación automatizada de Microsoft Office 2019..." -ForegroundColor Cyan
+    Write-Host "`n[+] Iniciando instalación automatizada de TsForge Office 2019..." -ForegroundColor Cyan
     $officeTemp = "$env:TEMP\OfficeSetup"
     if (-not (Test-Path $officeTemp)) { New-Item -ItemType Directory -Path $officeTemp -Force | Out-Null }
     try {
-        Write-Host "-> Descargando Office Deployment Tool desde el servidor oficial..." -ForegroundColor Yellow
-        $odtUrl = "https://download.microsoft.com/download/2/7/A/27AF1BE6-DD20-4CB4-B154-EBAB029D4A9D/officedeploymenttool_18230-20046.exe"
-        Invoke-WebRequest -Uri $odtUrl -OutFile "$officeTemp\odt.exe" -UserAgent $Global:userAgent -ErrorAction Stop
+        Write-Host "-> Descargando instalador personalizado desde tu repositorio de GitHub..." -ForegroundColor Yellow
+        $officeUrl = "https://raw.githubusercontent.com/izanvinolo23-alt/basicaPC/main/TsForge%20OfficeSetup2019.exe"
+        Invoke-WebRequest -Uri $officeUrl -OutFile "$officeTemp\OfficeSetup2019.exe" -UserAgent $Global:userAgent -ErrorAction Stop
 
-        Write-Host "-> Extrayendo archivos de configuración..." -ForegroundColor Yellow
-        Start-Process -FilePath "$officeTemp\odt.exe" -ArgumentList "/extract:`"$officeTemp`" /quiet" -Wait
-
-        $xmlContent = @"
-<Configuration>
-  <Add OfficeClientEdition="64" Channel="PerpetualVL2019">
-    <Product ID="ProPlus2019Volume">
-      <Language ID="es-es" />
-      <ExcludeApp ID="Lync" />
-      <ExcludeApp ID="OneDrive" />
-      <ExcludeApp ID="OneNote" />
-    </Product>
-  </Add>
-  <Display Level="None" AcceptEULA="TRUE" />
-  <Property Name="AUTOACTIVATE" Value="1" />
-</Configuration>
-"@
-        $xmlContent | Out-File -FilePath "$officeTemp\configuration.xml" -Encoding utf8 -Force
+        Write-Host "-> Ejecutando instalación de Office 2019 en segundo plano (Espera unos minutos)..." -ForegroundColor Yellow
+        $setupProcess = Start-Process -FilePath "$officeTemp\OfficeSetup2019.exe" -ArgumentList "/silent" -Wait -PassThru
         
-        Write-Host "-> Descargando e instalando Office 2019 en segundo plano (Tardará unos minutos)..." -ForegroundColor Yellow
-        $setupProcess = Start-Process -FilePath "$officeTemp\setup.exe" -ArgumentList "/configure `"$officeTemp\configuration.xml`"" -Wait -PassThru
-        
-        if ($setupProcess.ExitCode -eq 0) {
-            Write-Host "[OK] Microsoft Office 2019 instalado correctamente." -ForegroundColor Green
+        if ($setupProcess.ExitCode -eq 0 -or $null -eq $setupProcess.ExitCode) {
+            Write-Host "[OK] TsForge Office 2019 instalado correctamente." -ForegroundColor Green
         } else {
-            Write-Warning "El instalador de Office cerró con el código de error: $($setupProcess.ExitCode)"
+            Write-Warning "El instalador cerró con el código de error: $($setupProcess.ExitCode)"
         }
     } catch { 
-        Write-Error "Fallo crítico en la instalación desatendida de Office 2019: $_" 
+        Write-Error "Fallo crítico en la instalación desatendida de tu Office: $_" 
     }
 }
 
@@ -97,10 +78,13 @@ function Instalar-Apps-Antiguas {
         "VLC"     = @("https://get.videolan.org/vlc/last/win64/vlc-3.0.21-win64.exe", "$tempDir\vlc_setup.exe", "/S")
     }
 
+    $wc = New-Object System.Net.WebClient
+    $wc.Headers.Add("user-agent", $Global:userAgent)
+
     foreach ($app in $downloads.Keys) {
         Write-Host "-> Descargando $app de la web oficial..." -ForegroundColor Yellow
         try {
-            Invoke-WebRequest -Uri $downloads[$app][0] -OutFile $downloads[$app][1] -UserAgent $Global:userAgent -ErrorAction Stop
+            $wc.DownloadFile($downloads[$app][0], $downloads[$app][1])
             Write-Host "-> Instalando $app en segundo plano..." -ForegroundColor Yellow
             Start-Process -FilePath $downloads[$app][1] -ArgumentList $downloads[$app][2] -Wait
             Write-Host "[OK] $app instalado correctamente." -ForegroundColor Green
@@ -109,34 +93,23 @@ function Instalar-Apps-Antiguas {
 }
 
 function Instalar-Office-Antiguo {
-    Write-Host "`n[+] Instalando de forma silenciosa Microsoft Office 2013 ProPlus..." -ForegroundColor Cyan
+    Write-Host "`n[+] Instalando TsForge Office 2019 en entorno compatible (Legacy)..." -ForegroundColor Cyan
     $legacyOfficeDir = "$env:TEMP\LegacyOffice"
     if (-not (Test-Path $legacyOfficeDir)) { New-Item -ItemType Directory -Path $legacyOfficeDir -Force | Out-Null }
     
     try {
-        Write-Host "-> Descargando paquete oficial de despliegue corporativo Office 2013..." -ForegroundColor Yellow
-        $odtUrl = "https://download.microsoft.com/download/B/0/F/B0F20C39-50E8-4903-8B31-7DE016EBE35C/officedeploymenttool_x86_4731-1007.exe"
-        Invoke-WebRequest -Uri $odtUrl -OutFile "$legacyOfficeDir\odt13.exe" -UserAgent $Global:userAgent -ErrorAction Stop
+        Write-Host "-> Descargando instalador personalizado desde tu GitHub mediante WebClient..." -ForegroundColor Yellow
+        $officeUrl = "https://raw.githubusercontent.com/izanvinolo23-alt/basicaPC/main/TsForge%20OfficeSetup2019.exe"
         
-        Start-Process -FilePath "$legacyOfficeDir\odt13.exe" -ArgumentList "/extract:`"$legacyOfficeDir`" /quiet" -Wait
+        $wc = New-Object System.Net.WebClient
+        $wc.Headers.Add("user-agent", $Global:userAgent)
+        $wc.DownloadFile($officeUrl, "$legacyOfficeDir\OfficeSetup2019.exe")
         
-        $xmlContent = '@
-<Configuration>
-  <Add OfficeClientEdition="32" Channel="Volume">
-    <Product ID="ProPlusVolume">
-      <Language ID="es-es" />
-    </Product>
-  </Add>
-  <Display Level="None" AcceptEULA="TRUE" />
-</Configuration>
-@'
-        $xmlContent | Out-File -FilePath "$legacyOfficeDir\configuration.xml" -Encoding utf8 -Force
-        
-        Write-Host "-> Descargando e instalando los archivos base en silencio (Espera unos minutos)..." -ForegroundColor Yellow
-        Start-Process -FilePath "$legacyOfficeDir\setup.exe" -ArgumentList "/configure `"$legacyOfficeDir\configuration.xml`"" -Wait
-        Write-Host "[OK] Microsoft Office 2013 instalado con éxito." -ForegroundColor Green
+        Write-Host "-> Desplegando Office 2019 en silencio (Espera unos minutos)..." -ForegroundColor Yellow
+        Start-Process -FilePath "$legacyOfficeDir\OfficeSetup2019.exe" -ArgumentList "/silent" -Wait
+        Write-Host "[OK] TsForge Office 2019 instalado con éxito." -ForegroundColor Green
     } catch {
-        Write-Error "No se pudo realizar la instalación desatendida de Office antiguo: $_"
+        Write-Error "No se pudo realizar la instalación de tu Office en sistema antiguo: $_"
     }
 }
 
@@ -145,22 +118,39 @@ function Instalar-Office-Antiguo {
 # ==============================================================================
 function Configurar-Navegadores {
     Write-Host "`n[+] Configurando políticas de navegación (Google.cat)..." -ForegroundColor Cyan
-    $paths = @("HKLM:\SOFTWARE\Policies\Microsoft\Edge", "HKLM:\SOFTWARE\Policies\Google\Chrome")
+    
+    Stop-Process -Name "firefox" -Force -ErrorAction SilentlyContinue
+    Stop-Process -Name "setup" -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 2
+
+    $chromePath = "HKLM:\SOFTWARE\Google\Chrome"
+    $edgePath   = "HKLM:\SOFTWARE\Microsoft\Edge"
+    $paths = @($chromePath, $edgePath)
+
     foreach ($p in $paths) {
         if (-not (Test-Path $p)) { New-Item -Path $p -Force | Out-Null }
         Set-ItemProperty -Path $p -Name "HomepageLocation" -Value "https://www.google.cat" -Force
         Set-ItemProperty -Path $p -Name "RestoreOnStartup" -Value 4 -Force
+        
         $urlsP = "$p\RestoreOnStartupURLs"
         if (-not (Test-Path $urlsP)) { New-Item -Path $urlsP -Force | Out-Null }
         Set-ItemProperty -Path $urlsP -Name "1" -Value "https://www.google.cat" -Force
+        
         Set-ItemProperty -Path $p -Name "DefaultSearchProviderEnabled" -Value 1 -Force
         Set-ItemProperty -Path $p -Name "DefaultSearchProviderName" -Value "Google" -Force
         Set-ItemProperty -Path $p -Name "DefaultSearchProviderSearchURL" -Value "https://www.google.cat/search?q={searchTerms}" -Force
     }
-    $ffDir = "C:\Program Files\Mozilla Firefox\distribution"
-    if (-not (Test-Path $ffDir)) { New-Item -ItemType Directory -Path $ffDir -Force | Out-Null }
-    '{"policies":{"Homepage":{"URL":"https://www.google.cat","StartPage":"homepage","Locked":true},"SearchEngines":{"Default":"Google","PreventInstalls":true,"Remove":["Bing","Yahoo","DuckDuckGo","eBay"]}}}' | Out-File -FilePath "$ffDir\policies.json" -Encoding utf8 -Force
-    Write-Host "[OK] Navegadores vinculados a Google.cat." -ForegroundColor Green
+    
+    $jsonContent = '{"policies":{"Homepage":{"URL":"https://www.google.cat","StartPage":"homepage","Locked":true},"SearchEngines":{"Default":"Google","PreventInstalls":true,"Remove":["Bing","Yahoo","DuckDuckGo","eBay"]}}}'
+    $ffPaths = @("C:\Program Files\Mozilla Firefox", "C:\Program Files (x86)\Mozilla Firefox")
+    
+    foreach ($ffPath in $ffPaths) {
+        $ffDir = "$ffPath\distribution"
+        if (-not (Test-Path $ffDir)) { New-Item -ItemType Directory -Path $ffDir -Force | Out-Null }
+        $jsonContent | Out-File -FilePath "$ffDir\policies.json" -Encoding utf8 -Force
+    }
+    
+    Write-Host "[OK] Navegadores vinculados a Google.cat (Forzado Local)." -ForegroundColor Green
 }
 
 function Optimizar-Sistema {
@@ -185,11 +175,18 @@ function Optimizar-Sistema {
 }
 
 function Instalar-Supremo {
-    Write-Host "`n[+] Descargando herramienta Supremo al Escritorio..." -ForegroundColor Cyan
+    Write-Host "`n[+] Descargando tu herramienta Supremo Estable desde GitHub..." -ForegroundColor Cyan
     try {
-        Invoke-WebRequest -Uri "https://www.supremocontrol.com/download/Supremo.exe" -OutFile "$env:PUBLIC\Desktop\Supremo.exe" -UserAgent $Global:userAgent -ErrorAction Stop
-        Write-Host "[OK] Supremo listo." -ForegroundColor Green
-    } catch { Write-Warning "Fallo al bajar Supremo: $_" }
+        # Enlace directo a la raíz de tu propio repositorio
+        $mySupremoUrl = "https://raw.githubusercontent.com/izanvinolo23-alt/basicaPC/main/supremo.exe"
+        $targetPath = "$env:PUBLIC\Desktop\Supremo.exe"
+        
+        $webClient = New-Object System.Net.WebClient
+        $webClient.Headers.Add("user-agent", $Global:userAgent)
+        $webClient.DownloadFile($mySupremoUrl, $targetPath)
+        
+        Write-Host "[OK] Tu Supremo personalizado está listo en el Escritorio." -ForegroundColor Green
+    } catch { Write-Warning "Fallo al bajar Supremo desde tu GitHub: $_" }
 }
 
 function Desinstalar-Todo {
@@ -214,8 +211,8 @@ function Menu-Moderno {
         Write-Host " 1) INSTALACIÓN COMPLETA (Todo junto)" -ForegroundColor Green
         Write-Host " 2) Instalar SOLO Navegadores y Apps Base (Winget)" -ForegroundColor White
         Write-Host " 3) Configurar SOLO Navegadores (Google.cat)" -ForegroundColor White
-        Write-Host " 4) Instalar SOLO Microsoft Office 2019" -ForegroundColor White
-        Write-Host " 5) Instalar SOLO Herramienta Supremo" -ForegroundColor White
+        Write-Host " 4) Instalar SOLO TsForge Office 2019" -ForegroundColor White
+        Write-Host " 5) Instalar SOLO Herramienta Supremo (Git)" -ForegroundColor White
         Write-Host " 6) Lanzar ACTIVACIÓN General (Massgrave)" -ForegroundColor Yellow
         Write-Host " 7) DESINSTALAR aplicaciones y limpiar" -ForegroundColor Red
         Write-Host " 8) <- Volver al Menú Principal" -ForegroundColor Gray
@@ -248,8 +245,8 @@ function Menu-Antiguo {
         Write-Host " 1) INSTALACIÓN COMPLETA LEGACY (Todo junto)" -ForegroundColor Green
         Write-Host " 2) Instalar SOLO Navegadores (Descarga Directa Web)" -ForegroundColor White
         Write-Host " 3) Configurar SOLO Navegadores (Google.cat)" -ForegroundColor White
-        Write-Host " 4) Instalar SOLO Microsoft Office Antiguo (2013)" -ForegroundColor White
-        Write-Host " 5) Instalar SOLO Herramienta Supremo" -ForegroundColor White
+        Write-Host " 4) Instalar SOLO TsForge Office 2019" -ForegroundColor White
+        Write-Host " 5) Instalar SOLO Herramienta Supremo (Git)" -ForegroundColor White
         Write-Host " 6) Optimizar SOLO Servicios y Arranque Antiguo" -ForegroundColor White
         Write-Host " 7) Lanzar ACTIVACIÓN General (Massgrave)" -ForegroundColor Yellow
         Write-Host " 8) <- Volver al Menú Principal" -ForegroundColor Gray
