@@ -26,6 +26,7 @@ Invoke-Expression (Invoke-RestMethod "$base/browsers.ps1")
 Invoke-Expression (Invoke-RestMethod "$base/windows.ps1")
 Invoke-Expression (Invoke-RestMethod "$base/office.ps1")
 Invoke-Expression (Invoke-RestMethod "$base/tweaks.ps1")
+Invoke-Expression (Invoke-RestMethod "$base/antivirus.ps1")
 
 Write-Host "INSTALACIÓN COMPLETADA" -ForegroundColor Green
 
