@@ -1,5 +1,5 @@
 # ==============================================================================
-# PC SETUP UNIFICADO - MENÚ INTERACTIVO (OPCIÓN 1: INSTALAR TODO)
+# PC SETUP UNIFICADO - MENÚ INTERACTIVO COMPLETO CORREGIDO
 # ==============================================================================
 
 # 1. FORZAR ADMINISTRADOR
@@ -25,13 +25,17 @@ function Instalar-Navegadores {
     $apps = @("Google.Chrome", "Mozilla.Firefox", "VideoLAN.VLC", "Adobe.Acrobat.Reader.64-bit")
     foreach ($app in $apps) {
         Write-Host "-> Instalando: $app de forma silenciosa..." -ForegroundColor Yellow
-        if ($app -eq "Mozilla.Firefox" -or $app -eq "VideoLAN.VLC") {
-            winget install --id $app --silent --accept-package-agreements --accept-source-agreements --exact --override "/S"
-        } else {
-            winget install --id $app --silent --accept-package-agreements --accept-source-agreements --exact
+        try {
+            if ($app -eq "Mozilla.Firefox" -or $app -eq "VideoLAN.VLC") {
+                winget install --id $app --silent --accept-package-agreements --accept-source-agreements --exact --override "/S"
+            } else {
+                winget install --id $app --silent --accept-package-agreements --accept-source-agreements --exact
+            }
+            Write-Host "[OK] $app instalado." -ForegroundColor Green
+        } catch {
+            Write-Error "Error al intentar instalar $app : $_"
         }
     }
-    Write-Host "[OK] Aplicaciones base procesadas." -ForegroundColor Green
 }
 
 function Configurar-Navegadores {
@@ -72,7 +76,6 @@ function Instalar-Office {
 
 function Optimizar-Sistema {
     Write-Host "`n[+] Aplicando optimizaciones y limpieza del sistema..." -ForegroundColor Cyan
-    # Deshabilitar servicios innecesarios
     $services = @("DiagTrack", "dmwappushservice", "XblGameSave", "XblAuthManager", "XboxNetApiSvc", "XboxGipSvc", "WSearch", "WerSvc", "MapsBroker", "ParentalControls")
     foreach ($s in $services) {
         if (Get-Service $s -ErrorAction SilentlyContinue) {
@@ -80,7 +83,6 @@ function Optimizar-Sistema {
             reg.exe add "HKLM\SYSTEM\CurrentControlSet\Services\$s" /v Start /t REG_DWORD /d 4 /f | Out-Null
         }
     }
-    # Limpieza de arranque
     bcdedit /deletevalue {current} numproc -ErrorAction SilentlyContinue | Out-Null
     $runPaths = @("HKCU:\Software\Microsoft\Windows\CurrentVersion\Run", "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run")
     $whitelist = @("SecurityHealth", "WindowsDefender", "OneDrive", "RtkAudUService")
@@ -91,7 +93,6 @@ function Optimizar-Sistema {
             }
         }
     }
-    # Desactivar animaciones visuales
     Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "UserPreferencesMask" -Value ([byte[]](0x90,0x12,0x03,0x80,0x10,0x00,0x00,0x00)) -Force
     Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "AnimateControls" -Value 0 -Force
     Write-Host "[OK] Servicios y arranque optimizados al 100%." -ForegroundColor Green
@@ -138,27 +139,20 @@ do {
     $opcion = Read-Host "Elige una opción (1-8)"
 
     switch ($opcion) {
-
-            "1" {
-            # Evita el error comprobando si ya hay una transcripción activa antes de iniciarla
+        "1" {
             if ($null -eq (Get-Transcript -ErrorAction SilentlyContinue)) {
                 Start-Transcript -Path "$env:TEMP\pc-setup-log.txt" -Force
             }
-            
             Instalar-Navegadores
             Configurar-Navegadores
             Instalar-Office
             Optimizar-Sistema
             Instalar-Supremo
-            
-            # Detiene la transcripción de forma segura solo si está corriendo
             if ($null -ne (Get-Transcript -ErrorAction SilentlyContinue)) {
                 Stop-Transcript
             }
-            
             Write-Host "`n[OK] ¡Proceso completo finalizado con éxito!" -ForegroundColor Green
             Read-Host "`nPresiona Enter para volver al menú..."
-        }
         }
         "2" { Instalar-Navegadores; Read-Host "`nPresiona Enter para volver al menú..." }
         "3" { Configurar-Navegadores; Read-Host "`nPresiona Enter para volver al menú..." }
