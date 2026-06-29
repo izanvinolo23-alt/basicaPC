@@ -1,5 +1,5 @@
 # ==============================================================================
-# GESTOR DE DESPLIEGUE MULTIVERSIÓN - OPTIMIZADO PARA ARCHIVOS GRANDES (OFFICE)
+# GESTOR DE DESPLIEGUE MULTIVERSIÓN - CÓDIGO COMPLETADO CON INSTALADOR VISIBLE
 # ==============================================================================
 
 # 1. FORZAR ADMINISTRADOR
@@ -86,16 +86,16 @@ function Instalar-Office-Moderno {
     $descargaOk = Descargar-Archivo-Grande $officeUrl $officePath
     
     if ($descargaOk -and (Test-Path $officePath)) {
-        Write-Host "-> Descarga completada. Ejecutando instalación silenciosa de Office (Espera unos minutos)..." -ForegroundColor Yellow
-        $setupProcess = Start-Process -FilePath $officePath -ArgumentList "/silent" -Wait -PassThru
+        Write-Host "-> Descarga completada. Lanzando instalador de Office visible..." -ForegroundColor Yellow
+        $setupProcess = Start-Process -FilePath $officePath -Wait -PassThru
         
         if ($setupProcess.ExitCode -eq 0 -or $null -eq $setupProcess.ExitCode) {
-            Write-Host "[OK] Office 2019 instalado correctamente desde tu repositorio." -ForegroundColor Green
+            Write-Host "[OK] Proceso de Office 2019 finalizado." -ForegroundColor Green
         } else {
             Write-Warning "El instalador cerró con el código de error: $($setupProcess.ExitCode)"
         }
     } else {
-        Write-Error "No se pudo instalar Office porque el archivo no se descargó por completo."
+        Write-Error "No se pudo lanzar Office porque el archivo no se descargó por completo."
     }
 }
 
@@ -139,9 +139,9 @@ function Instalar-Office-Antiguo {
     $descargaOk = Descargar-Archivo-Grande $officeUrl $officePath
     
     if ($descargaOk -and (Test-Path $officePath)) {
-        Write-Host "-> Desplegando Office 2019 en silencio (Espera unos minutos)..." -ForegroundColor Yellow
-        Start-Process -FilePath $officePath -ArgumentList "/silent" -Wait
-        Write-Host "[OK] Office 2019 instalado con éxito en sistema antiguo." -ForegroundColor Green
+        Write-Host "-> Lanzando instalador de Office visible en entorno Legacy..." -ForegroundColor Yellow
+        Start-Process -FilePath $officePath -Wait
+        Write-Host "[OK] Proceso de Office 2019 ejecutado con éxito." -ForegroundColor Green
     } else {
         Write-Error "Error de descarga en entorno Legacy."
     }
