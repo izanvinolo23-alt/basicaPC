@@ -1,5 +1,5 @@
 # ==============================================================================
-# GESTOR DE DESPLIEGUE MULTIVERSIÓN - VERSIÓN FINAL REVISADA SIN ANIDAMIENTOS
+# GESTOR DE DESPLIEGUE MULTIVERSIÓN - OPTIMIZADO PARA ARCHIVOS GRANDES (OFFICE)
 # ==============================================================================
 
 # 1. FORZAR ADMINISTRADOR
@@ -21,6 +21,38 @@ if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
 
 $Global:TranscripcionActiva = $false
 $userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+
+# ==============================================================================
+# FUNCIÓN AUXILIAR: DESCARGA ROBUSTA CON CONTROL DE BÚFER
+# ==============================================================================
+function Descargar-Archivo-Grande ($url, $destino) {
+    $request = [System.Net.HttpWebRequest]::Create($url)
+    $request.UserAgent = $Global:userAgent
+    $request.Timeout = 1200000 # 20 minutos de límite máximo
+    
+    try {
+        $response = $request.GetResponse()
+        $responseStream = $response.GetResponseStream()
+        $fileStream = [System.IO.File]::Create($destino)
+        $buffer = New-Object Byte[] 65536
+        
+        Write-Host "-> Descargando bloque a bloque (Por favor, espera)..." -ForegroundColor Yellow
+        do {
+            $read = $responseStream.Read($buffer, 0, $buffer.Length)
+            if ($read -gt 0) {
+                $fileStream.Write($buffer, 0, $read)
+            }
+        } while ($read -gt 0)
+        
+        $fileStream.Close()
+        $responseStream.Close()
+        $response.Close()
+        return $true
+    } catch {
+        Write-Error "Fallo en la transferencia de datos: $_"
+        return $false
+    }
+}
 
 # ==============================================================================
 # FUNCIONES: SISTEMAS MODERNOS (WINDOWS 10 / 11)
@@ -46,13 +78,15 @@ function Instalar-Office-Moderno {
     Write-Host "`n[+] Iniciando instalación automatizada de Office 2019 desde GitHub..." -ForegroundColor Cyan
     $officeTemp = "$env:TEMP\OfficeSetup"
     if (-not (Test-Path $officeTemp)) { New-Item -ItemType Directory -Path $officeTemp -Force | Out-Null }
-    try {
-        Write-Host "-> Descargando tu instalador office2019.exe..." -ForegroundColor Yellow
-        $officeUrl = "https://raw.githubusercontent.com/izanvinolo23-alt/basicaPC/main/office2019.exe"
-        $officePath = "$officeTemp\office2019.exe"
-        Invoke-WebRequest -Uri $officeUrl -OutFile $officePath -UserAgent $Global:userAgent -ErrorAction Stop
-
-        Write-Host "-> Ejecutando instalación de Office 2019 en segundo plano (Espera unos minutos)..." -ForegroundColor Yellow
+    
+    $officeUrl = "https://raw.githubusercontent.com/izanvinolo23-alt/basicaPC/main/office2019.exe"
+    $officePath = "$officeTemp\office2019.exe"
+    
+    Write-Host "-> Iniciando descarga de tu instalador pesado office2019.exe..." -ForegroundColor Yellow
+    $descargaOk = Descargar-Archivo-Grande $officeUrl $officePath
+    
+    if ($descargaOk -and (Test-Path $officePath)) {
+        Write-Host "-> Descarga completada. Ejecutando instalación silenciosa de Office (Espera unos minutos)..." -ForegroundColor Yellow
         $setupProcess = Start-Process -FilePath $officePath -ArgumentList "/silent" -Wait -PassThru
         
         if ($setupProcess.ExitCode -eq 0 -or $null -eq $setupProcess.ExitCode) {
@@ -60,8 +94,8 @@ function Instalar-Office-Moderno {
         } else {
             Write-Warning "El instalador cerró con el código de error: $($setupProcess.ExitCode)"
         }
-    } catch { 
-        Write-Error "Fallo crítico en la instalación desatendida de tu Office: $_" 
+    } else {
+        Write-Error "No se pudo instalar Office porque el archivo no se descargó por completo."
     }
 }
 
@@ -98,20 +132,18 @@ function Instalar-Office-Antiguo {
     $legacyOfficeDir = "$env:TEMP\LegacyOffice"
     if (-not (Test-Path $legacyOfficeDir)) { New-Item -ItemType Directory -Path $legacyOfficeDir -Force | Out-Null }
     
-    try {
-        Write-Host "-> Descargando tu instalador office2019.exe mediante WebClient..." -ForegroundColor Yellow
-        $officeUrl = "https://raw.githubusercontent.com/izanvinolo23-alt/basicaPC/main/office2019.exe"
-        $officePath = "$legacyOfficeDir\office2019.exe"
-        
-        $wc = New-Object System.Net.WebClient
-        $wc.Headers.Add("user-agent", $Global:userAgent)
-        $wc.DownloadFile($officeUrl, $officePath)
-        
+    $officeUrl = "https://raw.githubusercontent.com/izanvinolo23-alt/basicaPC/main/office2019.exe"
+    $officePath = "$legacyOfficeDir\office2019.exe"
+    
+    Write-Host "-> Descargando office2019.exe mediante flujo de datos adaptivo..." -ForegroundColor Yellow
+    $descargaOk = Descargar-Archivo-Grande $officeUrl $officePath
+    
+    if ($descargaOk -and (Test-Path $officePath)) {
         Write-Host "-> Desplegando Office 2019 en silencio (Espera unos minutos)..." -ForegroundColor Yellow
         Start-Process -FilePath $officePath -ArgumentList "/silent" -Wait
-        Write-Host "[OK] Office 2019 instalado con éxito desde tu repositorio." -ForegroundColor Green
-    } catch {
-        Write-Error "No se pudo realizar la instalación de tu Office en sistema antiguo: $_"
+        Write-Host "[OK] Office 2019 instalado con éxito en sistema antiguo." -ForegroundColor Green
+    } else {
+        Write-Error "Error de descarga en entorno Legacy."
     }
 }
 
