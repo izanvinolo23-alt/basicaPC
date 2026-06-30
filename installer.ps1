@@ -64,7 +64,8 @@ function Instalar-Apps-Modernas {
     foreach ($app in $apps) {
         Write-Host "-> Instalando: $app de forma silenciosa..." -ForegroundColor Yellow
         try {
-            if ($app -eq "Mozilla.Firefox" -or $app -eq "VideoLAN.VLC") {
+            # CORREGIDO: Windows 11 gestiona de forma nativa los argumentos silenciosos de VLC y Firefox sin usar --override corruptos
+            if ($app -eq "Mozilla.Firefox") {
                 winget install --id $app --silent --accept-package-agreements --accept-source-agreements --exact --override "/S"
             } else {
                 winget install --id $app --silent --accept-package-agreements --accept-source-agreements --exact
@@ -120,7 +121,7 @@ function Instalar-Apps-Antiguas {
         Write-Host "-> Descargando $app de la web oficial..." -ForegroundColor Yellow
         try {
             $wc.DownloadFile($downloads[$app][0], $downloads[$app][1])
-            Write-Host "-> Instalando $app en segundo plano..." -ForegroundColor Yellow
+            Write-Host "-> Instalando $app de forma directa..." -ForegroundColor Yellow
             Start-Process -FilePath $downloads[$app][1] -ArgumentList $downloads[$app][2] -Wait
             Write-Host "[OK] $app instalado correctamente." -ForegroundColor Green
         } catch { Write-Error "No se pudo procesar $app : $_" }
@@ -151,11 +152,10 @@ function Instalar-Office-Antiguo {
 # FUNCIONES UNIVERSALES (COMPATIBLES CON TODOS LOS WINDOWS)
 # ==============================================================================
 function Instalar-Antivirus-InternetSecurity {
-    Write-Host "`n[+] Iniciando despliegue de ESET Internet Security desde tu GitHub..." -ForegroundColor Cyan
+    Write-Host "`n[+] Iniciando despliegue silencioso de ESET Internet Security desde tu GitHub..." -ForegroundColor Cyan
     $esetTemp = "$env:TEMP\EsetInternetSetup"
     if (-not (Test-Path $esetTemp)) { New-Item -ItemType Directory -Path $esetTemp -Force | Out-Null }
     
-    # Enlace directo a tu ejecutable subido y renombrado
     $esetUrl = "https://raw.githubusercontent.com/izanvinolo23-alt/basicaPC/main/eset_internet.exe"
     $esetPath = "$esetTemp\eset_internet.exe"
     
@@ -163,11 +163,16 @@ function Instalar-Antivirus-InternetSecurity {
     $descargaOk = Descargar-Archivo-Grande $esetUrl $esetPath
     
     if ($descargaOk -and (Test-Path $esetPath)) {
-        Write-Host "-> Lanzando asistente visible de ESET Internet Security..." -ForegroundColor Yellow
-        Start-Process -FilePath $esetPath -Wait
-        Write-Host "[OK] Proceso de instalación de ESET finalizado." -ForegroundColor Green
+        Write-Host "-> Instalando ESET Internet Security de forma 100% invisible (Espera un momento)..." -ForegroundColor Yellow
+        $setupProcess = Start-Process -FilePath $esetPath -ArgumentList "/qn /norestart" -Wait -PassThru
+        
+        if ($setupProcess.ExitCode -eq 0 -or $setupProcess.ExitCode -eq 3010) {
+            Write-Host "[OK] ESET Internet Security instalado con éxito en segundo plano." -ForegroundColor Green
+        } else {
+            Write-Warning "El proceso terminó. Código de salida: $($setupProcess.ExitCode) (Comprueba si ya está instalado)"
+        }
     } else {
-        Write-Error "No se pudo bajar el instalador de ESET Internet Security desde tu GitHub."
+        Write-Error "No se pudo bajar el instalador silencioso de ESET desde tu GitHub."
     }
 }
 
@@ -316,52 +321,4 @@ function Menu-Antiguo {
         Write-Host "=============================================" -ForegroundColor Yellow
         Write-Host "     HERRAMIENTAS WINDOWS 7 / 8 / 8.1        " -ForegroundColor Yellow
         Write-Host "=============================================" -ForegroundColor Yellow
-        Write-Host " 1) INSTALACIÓN COMPLETA LEGACY (Todo junto)" -ForegroundColor Green
-        Write-Host " 2) Instalar SOLO Navegadores (Descarga Directa Web)" -ForegroundColor White
-        Write-Host " 3) Configurar SOLO Navegadores (Google.cat)" -ForegroundColor White
-        Write-Host " 4) Instalar SOLO Office 2019 (Git)" -ForegroundColor White
-        Write-Host " 5) Instalar SOLO Herramienta Supremo (Git)" -ForegroundColor White
-        Write-Host " 6) Instalar SOLO ESET Internet Security (Git)" -ForegroundColor White
-        Write-Host " 7) Optimizar SOLO Servicios y Arranque Antiguo" -ForegroundColor White
-        Write-Host " 8) Lanzar ACTIVACIÓN General (Massgrave)" -ForegroundColor Yellow
-        Write-Host " 9) <- Volver al Menú Principal" -ForegroundColor Gray
-        Write-Host "=============================================" -ForegroundColor Yellow
-        $opc = Read-Host "Elige una opción (1-9)"
-        switch ($opc) {
-            "1" {
-                Instalar-Apps-Antiguas; Configurar-Navegadores; Instalar-Office-Antiguo; Optimizar-Sistema; Instalar-Supremo; Instalar-Antivirus-InternetSecurity
-                Read-Host "`n[OK] Maquetación antigua finalizada. Presiona Enter..."
-            }
-            "2" { Instalar-Apps-Antiguas; Read-Host "`nPresiona Enter..." }
-            "3" { Configurar-Navegadores; Read-Host "`nPresiona Enter..." }
-            "4" { Instalar-Office-Antiguo; Read-Host "`nPresiona Enter..." }
-            "5" { Instalar-Supremo; Read-Host "`nPresiona Enter..." }
-            "6" { Instalar-Antivirus-InternetSecurity; Read-Host "`nPresiona Enter..." }
-            "7" { Optimizar-Sistema; Read-Host "`nPresiona Enter..." }
-            "8" { Write-Host "`n[+] Lanzando Massgrave..."; irm https://get.activated.win | iex; Read-Host "`nPresiona Enter..." }
-            "9" { break }
-        }
-    } while ($opc -ne "9")
-}
-
-# ==============================================================================
-# BUCLE DEL MENÚ PRINCIPAL
-# ==============================================================================
-do {
-    Clear-Host
-    Write-Host "=============================================" -ForegroundColor Cyan
-    Write-Host "          GESTOR DE DESPLIEGUE I.V.          " -ForegroundColor Cyan
-    Write-Host "=============================================" -ForegroundColor Cyan
-    Write-Host " 1) Trabajar con WINDOWS 10 / 11 (Moderno)" -ForegroundColor White
-    Write-Host " 2) Trabajar con WINDOWS 7 / 8 / 8.1 (Legacy)" -ForegroundColor Yellow
-    Write-Host " 3) Salir" -ForegroundColor Red
-    Write-Host "=============================================" -ForegroundColor Cyan
-    $mainOpc = Read-Host "Selecciona el entorno del equipo (1-3)"
-
-    switch ($mainOpc) {
-        "1" { Menu-Moderno }
-        "2" { Menu-Antiguo }
-        "3" { Write-Host "`nCerrando el instalador..." -ForegroundColor Gray; break }
-        Default { Write-Host "`nOpción incorrecta." -ForegroundColor Red; Start-Sleep -Seconds 1 }
-    }
-} while ($mainOpc -ne "3")
+        Write-Host
